@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>生活ルーティン管理 v21.2 (Personal Only)</title>
+    <title>生活ルーティン管理 v22.0 (Stable)</title>
     <style>
         :root {
             --bg-color: #050505;
@@ -278,18 +278,32 @@
         .event-item-custom { grid-template-columns: 80px 1fr 30px; border-left: 3px solid var(--accent-event); }
         
         /* フォーム共通設定 */
-        /* 視認性向上のための修正: 背景色を明るく、枠線を強化 */
         ::placeholder { color: #aaa; opacity: 0.8; }
         
+        /* select要素のスタイル修正 (黒くなるバグ対応) */
+        select {
+            color: #ffffff !important;
+            background-color: #444 !important;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        /* option要素のスタイル */
+        option {
+            background-color: #333 !important;
+            color: #ffffff !important;
+        }
+
         .list-item input, .list-item select, textarea, .task-input-area input, .task-input-area select, .task-date-input, .emergency-input {
-            background: #444 !important; /* #333から変更 */
-            border: 1px solid #777; /* #666から変更 */
-            color: #fff !important;
+            background: #444 !important;
+            border: 1px solid #777;
+            color: #ffffff !important; /* 強制的に白文字 */
             padding: 8px; border-radius: 4px; text-align: center; font-size: 14px; 
             width: 100%; box-sizing: border-box;
         }
+        
         .list-item input:focus, textarea:focus, select:focus, .task-date-input:focus, .emergency-input:focus {
             border-color: var(--current-accent); outline: none; background: #555 !important;
+            color: #ffffff !important;
         }
         .list-item input.inp-name { text-align: left; flex-grow: 1; }
         .btn-delete { color: #ff5555; border: none; background: none; font-size: 1.3rem; cursor: pointer; padding: 0 5px;}
@@ -671,10 +685,12 @@
         /**
          * GLOBAL VARIABLES
          */
+        const STORAGE_KEY = 'routine_dashboard_v22_fix'; // 保存キーを刷新し不整合を解消
+
         let appData = {
             schedules: {},
             calendarEvents: {}, 
-            customEvents: [], // 個人の記念日等（編集可能）
+            customEvents: [], 
             tasks: [], 
             emergencyList: [],
             isRestMode: false,
@@ -746,7 +762,7 @@
 
         // --- 保存・読込 ---
         function loadData() {
-            const saved = localStorage.getItem('routine_dashboard_v21_1');
+            const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 const loaded = JSON.parse(saved);
                 appData = { ...appData, ...loaded };
@@ -754,14 +770,16 @@
                 appData.schedules = JSON.parse(JSON.stringify(defaultSchedules));
                 // customEventsは空で初期化
             }
+            // データ整合性補正
             if(!appData.tasks) appData.tasks = [];
             if(!appData.emergencyList) appData.emergencyList = [];
             if(!appData.customEvents) appData.customEvents = [];
+            if(!appData.schedules) appData.schedules = JSON.parse(JSON.stringify(defaultSchedules));
             
             initTimeOptions();
             initEventSelects();
         }
-        function saveData() { localStorage.setItem('routine_dashboard_v21_1', JSON.stringify(appData)); }
+        function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); }
 
         // --- ユーティリティ ---
         function getMinutes(t) { return t ? t.split(':').reduce((h, m) => h * 60 + +m, 0) : 0; }
@@ -915,13 +933,10 @@
 
             if (isNightMode) {
                  // 夜間モード（就寝中）
-                 // 翌朝までの残り分数を計算
                  let diffM = 0;
                  if (curM >= nightStart) { 
-                     // まだ日付が変わっていない (例 22:00 vs 翌05:00)
                      diffM = (24 * 60 - curM) + morningStart;
                  } else { 
-                     // 日付が変わっている (例 02:00 vs 05:00)
                      diffM = morningStart - curM;
                  }
 
@@ -1282,7 +1297,6 @@
             const list = document.getElementById('eventList'); list.innerHTML = '';
             
             // 修正: 固定イベントはリスト表示しない。カスタムイベントのみ表示。
-            // インデックス情報を保持するためにmapを使用
             let displayEvents = appData.customEvents.map((evt, idx) => ({...evt, originalIndex: idx}));
             
             if (displayEvents.length === 0) {
